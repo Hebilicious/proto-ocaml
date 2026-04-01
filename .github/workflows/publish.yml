@@ -1,4 +1,4 @@
-name: Release
+name: Publish
 
 permissions:
   contents: write
@@ -7,11 +7,10 @@ on:
   push:
     tags:
       - "v[0-9]+*"
-  pull_request:
 
 jobs:
-  build:
-    name: Build
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +19,7 @@ jobs:
           cache: false
       - id: build
         uses: moonrepo/build-wasm-plugin@v0
-      - if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
-        uses: ncipollo/release-action@v1
+      - uses: ncipollo/release-action@v1
         with:
           artifacts: builds/*
           artifactErrorsFailBuild: true

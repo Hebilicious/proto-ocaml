@@ -91,5 +91,15 @@ dependency stanzas, for example:
 ```shell
 rustup target add wasm32-wasip1
 cargo build --target wasm32-wasip1
+cargo test
 ./tests/e2e/run.sh
 ```
+
+## Releases
+
+This repository uses [`release-plz`](https://release-plz.dev/) to manage
+version bumps and release pull requests.
+
+Merging changes into `main` updates or creates the automated release PR.
+Merging that release PR creates the version tag, and the tag workflow publishes
+the GitHub release artifact.
