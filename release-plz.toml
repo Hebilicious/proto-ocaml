@@ -1,0 +1,11 @@
+[workspace]
+git_only = true
+publish = false
+release_always = false
+git_release_enable = false
+repo_url = "https://github.com/Hebilicious/proto-ocaml"
+pr_labels = ["release"]
+
+[[package]]
+name = "ocaml_plugin"
+git_tag_name = "v{{ version }}"
