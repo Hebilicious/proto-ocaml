@@ -1,0 +1,33 @@
+[package]
+name = "ocaml_plugin"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[package.metadata.release]
+pre-release-replacements = [
+    { file = "./CHANGELOG.md", search = "Unreleased", replace = "{{version}}" },
+]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anyhow = "1.0.100"
+extism-pdk = "1.4.1"
+proto_pdk = "0.32.7"
+regex = "1.12.2"
+serde = { version = "1.0.228", features = ["derive"] }
+starbase_utils = { version = "0.12.6", default-features = false }
+
+[features]
+default = ["wasm"]
+wasm = []
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = true
+opt-level = "s"
+panic = "abort"
