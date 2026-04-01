@@ -57,22 +57,44 @@ jobs:
     needs: resolve_tag
     if: needs.resolve_tag.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.resolve_tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ref: ${{ needs.resolve_tag.outputs.tag }}
       - uses: moonrepo/setup-rust@v1
         with:
           cache: false
-      - id: build
-        uses: moonrepo/build-wasm-plugin@v0
+      - run: rustup target add wasm32-wasip1
+      - name: Build wasm plugin
+        shell: bash
+        run: |
+          cargo build --target wasm32-wasip1 --release
+          mkdir -p builds
+          cp target/wasm32-wasip1/release/ocaml_plugin.wasm "builds/ocaml_plugin-${RELEASE_TAG}.wasm"
+      - name: Extract release notes
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          awk -v version="$version" '
+            $0 ~ "^## \\[" version "\\]" { in_section=1 }
+            in_section && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" { exit }
+            in_section { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "Failed to extract release notes for ${RELEASE_TAG}" >&2
+            exit 1
+          fi
       - uses: ncipollo/release-action@v1
         with:
           artifacts: builds/*
           artifactErrorsFailBuild: true
-          body: ${{ steps.build.outputs.changelog-entry }}
+          bodyFile: release-notes.md
           makeLatest: true
-          name: ${{ needs.resolve_tag.outputs.tag }}
+          name: ${{ env.RELEASE_TAG }}
           prerelease: ${{ contains(needs.resolve_tag.outputs.tag, '-alpha') || contains(needs.resolve_tag.outputs.tag, '-beta') || contains(needs.resolve_tag.outputs.tag, '-rc') }}
           skipIfReleaseExists: true
-          tag: ${{ needs.resolve_tag.outputs.tag }}
+          tag: ${{ env.RELEASE_TAG }}
