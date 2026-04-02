@@ -1,4 +1,4 @@
-name: Release PR
+name: Release
 
 permissions:
   contents: write
@@ -34,14 +34,73 @@ jobs:
     concurrency:
       group: release-plz-${{ github.ref }}-release
       cancel-in-progress: false
+    outputs:
+      releases: ${{ steps.release.outputs.releases }}
+      releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: release-plz/action@v0.5
+      - id: release
+        uses: release-plz/action@v0.5
         with:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.releases_created == 'true'
+    steps:
+      - id: release_info
+        shell: bash
+        env:
+          RELEASES_JSON: ${{ needs.release.outputs.releases }}
+        run: |
+          tag=$(jq -r '.[0].tag // empty' <<<"$RELEASES_JSON")
+
+          if [[ -z "$tag" ]]; then
+            echo "No release tag found in release-plz output" >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.release_info.outputs.tag }}
+      - uses: moonrepo/setup-rust@v1
+        with:
+          cache: false
+      - id: build
+        uses: moonrepo/build-wasm-plugin@v0
+      - name: Extract release notes
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release_info.outputs.tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          awk -v version="$version" '
+            $0 ~ "^## \\[" version "\\]" { in_section=1 }
+            in_section && $0 ~ "^## \\[" && $0 !~ "^## \\[" version "\\]" { exit }
+            in_section { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "Failed to extract release notes for ${RELEASE_TAG}" >&2
+            exit 1
+          fi
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: builds/*
+          artifactErrorsFailBuild: true
+          bodyFile: release-notes.md
+          makeLatest: true
+          name: ${{ steps.release_info.outputs.tag }}
+          prerelease: ${{ contains(steps.release_info.outputs.tag, '-alpha') || contains(steps.release_info.outputs.tag, '-beta') || contains(steps.release_info.outputs.tag, '-rc') }}
+          skipIfReleaseExists: true
+          tag: ${{ steps.release_info.outputs.tag }}
