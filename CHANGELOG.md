@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.2](https://github.com/Hebilicious/proto-ocaml/compare/v0.1.1...v0.1.2) - 2026-04-02
+
+### Other
+
+- Clean up fixture versions and add repo instructions
+
 ## [0.1.1](https://github.com/Hebilicious/proto-ocaml/compare/v0.1.0...v0.1.1) - 2026-04-02
 
 ### Other
