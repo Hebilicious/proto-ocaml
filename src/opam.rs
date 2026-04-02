@@ -262,6 +262,8 @@ mod tests {
     use super::*;
     use proto_pdk::HostLibc;
 
+    const FIXTURE_OCAML_VERSION: &str = "5.4.1";
+
     fn host_env(os: HostOS, arch: HostArch) -> HostEnvironment {
         HostEnvironment {
             arch,
@@ -274,10 +276,18 @@ mod tests {
 
     fn tool_dir() -> VirtualPath {
         VirtualPath::Virtual {
-            path: PathBuf::from("/proto/tools/ocaml/5.4.1"),
+            path: PathBuf::from(format!("/proto/tools/ocaml/{FIXTURE_OCAML_VERSION}")),
             virtual_prefix: PathBuf::from("/proto"),
             real_prefix: PathBuf::from("/root/.proto"),
         }
+    }
+
+    fn real_tool_dir() -> String {
+        format!("/root/.proto/tools/ocaml/{FIXTURE_OCAML_VERSION}")
+    }
+
+    fn real_tool_path(path: &str) -> String {
+        format!("{}/{path}", real_tool_dir())
     }
 
     #[test]
@@ -312,35 +322,38 @@ mod tests {
     #[test]
     fn builds_non_interactive_init_command_for_windows() {
         let plan = build_opam_init_command(
-            "/root/.proto/tools/ocaml/5.4.1/bin/opam.exe",
+            &real_tool_path("bin/opam.exe"),
             &tool_dir(),
             &host_env(HostOS::Windows, HostArch::X64),
         );
 
-        assert_eq!(plan.command, "/root/.proto/tools/ocaml/5.4.1/bin/opam.exe");
+        assert_eq!(plan.command, real_tool_path("bin/opam.exe"));
         assert!(plan.args.contains(&"--cygwin-internal-install".into()));
         assert_eq!(plan.cwd, Some(tool_dir()));
     }
 
     #[test]
     fn builds_switch_create_command_for_local_switch() -> AnyResult<()> {
+        let expected_tool_dir = real_tool_dir();
+        let expected_opam_root = real_tool_path(".opam-root");
+
         let plan = build_switch_create_command(
-            "/root/.proto/tools/ocaml/5.4.1/bin/opam",
+            &real_tool_path("bin/opam"),
             &tool_dir(),
-            &VersionSpec::parse("5.4.1")?,
+            &VersionSpec::parse(FIXTURE_OCAML_VERSION)?,
         );
 
-        assert_eq!(plan.command, "/root/.proto/tools/ocaml/5.4.1/bin/opam");
+        assert_eq!(plan.command, real_tool_path("bin/opam"));
         assert_eq!(
             plan.args,
             vec![
-                "switch",
-                "create",
-                "/root/.proto/tools/ocaml/5.4.1",
-                "ocaml-base-compiler.5.4.1",
-                "--yes",
-                "--root",
-                "/root/.proto/tools/ocaml/5.4.1/.opam-root",
+                "switch".into(),
+                "create".into(),
+                expected_tool_dir,
+                format!("ocaml-base-compiler.{FIXTURE_OCAML_VERSION}"),
+                "--yes".into(),
+                "--root".into(),
+                expected_opam_root,
             ],
         );
         assert_eq!(plan.cwd, Some(tool_dir()));
@@ -350,26 +363,29 @@ mod tests {
 
     #[test]
     fn builds_opam_env_command_with_explicit_root_and_switch() -> AnyResult<()> {
+        let expected_tool_dir = real_tool_dir();
+        let expected_opam_root = real_tool_path(".opam-root");
+
         let context = PluginContext {
             proto_version: Some(Version::new(0, 55, 3)),
             temp_dir: VirtualPath::Real(PathBuf::from("/tmp/proto-ocaml")),
             tool_dir: tool_dir(),
-            version: VersionSpec::parse("5.4.1")?,
+            version: VersionSpec::parse(FIXTURE_OCAML_VERSION)?,
         };
 
-        let plan = build_opam_env_command("/root/.proto/tools/ocaml/5.4.1/bin/opam", &context);
+        let plan = build_opam_env_command(&real_tool_path("bin/opam"), &context);
 
         assert_eq!(
             plan.args,
             vec![
-                "env",
-                "--sexp",
-                "--root",
-                "/root/.proto/tools/ocaml/5.4.1/.opam-root",
-                "--switch",
-                "/root/.proto/tools/ocaml/5.4.1",
-                "--set-root",
-                "--set-switch",
+                "env".into(),
+                "--sexp".into(),
+                "--root".into(),
+                expected_opam_root,
+                "--switch".into(),
+                expected_tool_dir,
+                "--set-root".into(),
+                "--set-switch".into(),
             ],
         );
 
@@ -379,9 +395,12 @@ mod tests {
     #[test]
     fn parses_opam_env_sexp_pairs_with_escaped_values() {
         let values = parse_opam_env_sexp(
-            r#"(("OPAMROOT" "/root/.proto/tools/ocaml/5.4.1/.opam-root")
+            &format!(
+                r#"(("OPAMROOT" "{}/.opam-root")
                 ("CAML_LD_LIBRARY_PATH" "/tmp/with\\backslash")
                 ("MERLIN_LOG" "quoted:\"value\""))"#,
+                real_tool_dir(),
+            ),
         );
 
         assert_eq!(
@@ -389,7 +408,7 @@ mod tests {
             vec![
                 (
                     "OPAMROOT".into(),
-                    "/root/.proto/tools/ocaml/5.4.1/.opam-root".into(),
+                    real_tool_path(".opam-root"),
                 ),
                 ("CAML_LD_LIBRARY_PATH".into(), "/tmp/with\\backslash".into()),
                 ("MERLIN_LOG".into(), "quoted:\"value\"".into()),
@@ -401,7 +420,10 @@ mod tests {
     fn keeps_tool_local_paths_from_opam_env_and_dedupes_them() {
         let env = host_env(HostOS::Linux, HostArch::Arm64);
         let paths = split_tool_paths(
-            "/root/.proto/tools/ocaml/5.4.1/bin:/root/.proto/tools/ocaml/5.4.1/_opam/bin:/usr/bin:/root/.proto/tools/ocaml/5.4.1/bin",
+            &format!(
+                "{0}/bin:{0}/_opam/bin:/usr/bin:{0}/bin",
+                real_tool_dir(),
+            ),
             &tool_dir(),
             &env,
         );
@@ -409,8 +431,8 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                PathBuf::from("/root/.proto/tools/ocaml/5.4.1/bin"),
-                PathBuf::from("/root/.proto/tools/ocaml/5.4.1/_opam/bin"),
+                PathBuf::from(real_tool_path("bin")),
+                PathBuf::from(real_tool_path("_opam/bin")),
             ],
         );
     }

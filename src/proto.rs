@@ -184,6 +184,9 @@ mod tests {
     use super::*;
     use proto_pdk::HostLibc;
 
+    const FIXTURE_LATEST_VERSION: &str = "5.4.1";
+    const FIXTURE_PREVIOUS_VERSION: &str = "5.4.0";
+
     fn host_env(os: HostOS, arch: HostArch) -> HostEnvironment {
         HostEnvironment {
             arch,
@@ -197,10 +200,16 @@ mod tests {
     #[test]
     fn normalizes_supported_ocaml_tags_only() {
         assert_eq!(normalize_ocaml_tag("v4.08.1"), Some("4.8.1".into()));
-        assert_eq!(normalize_ocaml_tag("5.4.1"), Some("5.4.1".into()));
+        assert_eq!(
+            normalize_ocaml_tag(FIXTURE_LATEST_VERSION),
+            Some(FIXTURE_LATEST_VERSION.into()),
+        );
         assert_eq!(normalize_ocaml_tag("5.4"), None);
         assert_eq!(normalize_ocaml_tag("trunk"), None);
-        assert_eq!(normalize_ocaml_tag("5.4.1+flambda"), None);
+        assert_eq!(
+            normalize_ocaml_tag(&format!("{FIXTURE_LATEST_VERSION}+flambda")),
+            None,
+        );
     }
 
     #[test]
@@ -208,19 +217,26 @@ mod tests {
         let output = build_load_versions_output(vec![
             "4.08.1".into(),
             "4.8.1".into(),
-            "v5.4.0".into(),
-            "5.4.1".into(),
+            format!("v{FIXTURE_PREVIOUS_VERSION}"),
+            FIXTURE_LATEST_VERSION.into(),
             "trunk".into(),
         ])?;
 
-        assert_eq!(output.latest, Some(UnresolvedVersionSpec::parse("5.4.1")?));
+        assert_eq!(
+            output.latest,
+            Some(UnresolvedVersionSpec::parse(FIXTURE_LATEST_VERSION)?),
+        );
         assert_eq!(
             output.aliases.get("stable"),
-            Some(&UnresolvedVersionSpec::parse("5.4.1")?),
+            Some(&UnresolvedVersionSpec::parse(FIXTURE_LATEST_VERSION)?),
         );
         assert_eq!(
             output.versions,
-            vec![VersionSpec::parse("4.8.1")?, VersionSpec::parse("5.4.0")?, VersionSpec::parse("5.4.1")?],
+            vec![
+                VersionSpec::parse("4.8.1")?,
+                VersionSpec::parse(FIXTURE_PREVIOUS_VERSION)?,
+                VersionSpec::parse(FIXTURE_LATEST_VERSION)?,
+            ],
         );
 
         Ok(())
