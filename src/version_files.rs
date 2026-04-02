@@ -108,6 +108,8 @@ pub fn parse_version_file(file: &str, contents: &str) -> AnyResult<ParseVersionF
 mod tests {
     use super::*;
 
+    const FIXTURE_UNSUPPORTED_PACKAGE: &str = "ocaml-variants.5.4.1";
+
     #[test]
     fn normalizes_prefixed_and_zero_padded_versions() {
         assert_eq!(normalize_ocaml_version("ocaml-base-compiler.4.08.1"), "4.8.1");
@@ -128,12 +130,12 @@ mod tests {
     #[test]
     fn rejects_unsupported_ocaml_version_package_names() {
         let error =
-            parse_ocaml_version("ocaml-variants.5.4.1").expect_err("expected an error");
+            parse_ocaml_version(FIXTURE_UNSUPPORTED_PACKAGE).expect_err("expected an error");
 
         assert!(
             error
                 .to_string()
-                .contains("Unsupported .ocaml-version value ocaml-variants.5.4.1"),
+                .contains(&format!("Unsupported .ocaml-version value {FIXTURE_UNSUPPORTED_PACKAGE}")),
         );
     }
 
