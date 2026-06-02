@@ -1,5 +1,9 @@
 # OCaml plugin
 
+> This repository has moved to
+> [`Hebilicious/proto-plugins`](https://github.com/Hebilicious/proto-plugins/tree/main/plugins/ocaml)
+> and is kept only as an archive.
+
 [OCaml](https://ocaml.org/) WASM plugin for [proto](https://moonrepo.dev/proto).
 
 This plugin installs a realistic OCaml baseline:
@@ -17,7 +21,7 @@ Add the following to `.prototools`:
 
 ```toml
 [plugins]
-ocaml = "github://hebilicious/proto-ocaml"
+ocaml = "github://hebilicious/proto-plugins/ocaml"
 
 [tools.ocaml]
 version = "5.4.1"
@@ -26,7 +30,7 @@ version = "5.4.1"
 Or add it explicitly:
 
 ```shell
-proto plugin add ocaml github://hebilicious/proto-ocaml
+proto plugin add ocaml github://hebilicious/proto-plugins/ocaml
 ```
 
 ## Usage
